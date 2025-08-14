@@ -73,7 +73,7 @@ Route::middleware(['auth:sanctum'])->prefix('v2')->group(function () {
     Route::prefix('asistencia')->middleware('auth:sanctum')->group(function () {
     Route::post('/', [AsistenciaController::class, 'sincronizarRegistros']);
     });
-});
+
 
 // Ruta para el inicio de sesión
 Route::any('/login', function () {
@@ -82,3 +82,4 @@ Route::any('/login', function () {
         'message' => 'Debes estar autenticado para usar esta ruta.'
     ], 401);
 })->name('login');
+});
