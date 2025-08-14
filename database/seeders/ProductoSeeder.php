@@ -19,9 +19,7 @@ class ProductoSeeder extends Seeder
                 'nombre' => 'Nachos con queso',
                 'descripcion' => 'Totopos crujientes bañados en queso cheddar derretido.',
                 'precio' => 89.00,
-                'imagen_principal' => json_encode([
-                    'url_imagen' => 'https://i.ibb.co/ycpDsSjd/nachos.jpg'
-                ]),
+                'imagen_principal' => json_encode(['nachos.jpg']),
             ],
             [
                 'categoria_id' => 2, // Sopas
