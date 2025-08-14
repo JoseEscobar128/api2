@@ -19,7 +19,7 @@ class PedidoController extends Controller
             $limit = $request->input('limit', 100);
 
             // --- LÓGICA DE FILTROS CORREGIDA Y COMPLETA ---
-            $query = Pedido::with(['estadoPedido', 'modalidad', 'items', 'mesa'])
+            $query = Pedido::with(['estadoPedido', 'modalidad', 'items.producto', 'mesa'])
                 ->orderBy('created_at', 'desc');
 
             // Filtro por Búsqueda (ID del pedido)
@@ -63,6 +63,8 @@ class PedidoController extends Controller
                         return [
                             'producto_id' => $item->producto_id,
                             'cantidad' => $item->cantidad,
+                            'nombre' => $item->producto->nombre ?? 'Producto no encontrado',
+                            'nota' => $item->nota, 
                         ];
                     }),
                 ];
