@@ -21,19 +21,18 @@ class ProductoRequest extends FormRequest
      */
     public function rules(): array
     {
-
         return [
             'categoria_id' => 'required|exists:categorias,id',
             'sucursal_id' => 'required|exists:sucursals,id',
             'nombre' => 'required|string|max:255',
             'descripcion' => 'nullable|string',
             'precio' => 'required|numeric|min:0',
-            'imagen_principal' => 'nullable|array',
-            'imagen_principal.url_imagen' => 'required_with:imagen_principal|url',
-            'imagen_principal.descripcion' => 'nullable|string',
+            'imagen_principal' => 'nullable|array', 
+            'imagen_principal.*' => 'string|max:255',
         ];
     }
-     public function messages(): array
+
+    public function messages(): array
     {
         return [
             'categoria_id.required' => 'La categoría es obligatoria y debe existir.',
