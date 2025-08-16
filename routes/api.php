@@ -54,6 +54,9 @@ Route::middleware(['auth:sanctum'])->prefix('v2')->group(function () {
         Route::patch('/{id}/estado', [PedidoController::class, 'actualizarEstado'])->middleware('permission:pedidos.update_estado');
     });
 
+    Route::post('/pedidoscliente', [PedidoController::class, 'storeCliente']);
+
+
         // 💡 RUTAS FALTANTES: Listar estados y modalidades de pedido
     Route::prefix('estado_pedidos')->group(function () {
         Route::get('/', [EstadoPedidoController::class, 'index']);

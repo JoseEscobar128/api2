@@ -48,7 +48,7 @@ class PedidoController extends Controller
                 // Si solo se proporciona la fecha de fin, busca hasta esa fecha.
                 $query->where('created_at', '<=', $request->fecha_fin . ' 23:59:59');
             }
-            
+
             $pedidos = $query->paginate($limit);
 
             $data = $pedidos->getCollection()->transform(function ($pedido) {
@@ -59,12 +59,12 @@ class PedidoController extends Controller
                     'totalPedido' => (float) $pedido->total_pedido,
                     'createdAt' => $pedido->created_at->toIso8601String(),
                     'mesaId' => $pedido->mesa_id,
-                    'items' => $pedido->items->map(function($item) {
+                    'items' => $pedido->items->map(function ($item) {
                         return [
                             'producto_id' => $item->producto_id,
                             'cantidad' => $item->cantidad,
                             'nombre' => $item->producto->nombre ?? 'Producto no encontrado',
-                            'nota' => $item->nota, 
+                            'nota' => $item->nota,
                         ];
                     }),
                 ];
@@ -90,7 +90,7 @@ class PedidoController extends Controller
         }
     }
 
-   public function show($id)
+    public function show($id)
     {
         try {
             // Cargamos todas las relaciones necesarias para una respuesta completa
@@ -115,12 +115,12 @@ class PedidoController extends Controller
                     'cajeroNombre' => $cajeroNombre,
                     'modalidad' => $modalidad,
                     'estadoPedido' => $estado,
-                    
+
                     // --- ¡CORRECCIÓN CLAVE AQUÍ! ---
                     // Añadimos 'mesaId' y 'mesaNombre' al nivel superior para que el frontend los encuentre fácilmente.
                     'mesaId' => $pedido->mesa_id,
                     'mesaNombre' => $pedido->mesa->nombre ?? null,
-                    
+
                     'totalPedido' => round($pedido->total_pedido, 2),
                     'items' => $pedido->items->map(function ($item) {
                         return [
@@ -241,7 +241,6 @@ class PedidoController extends Controller
                     'totalPedido' => round($totalPedido, 2)
                 ]
             ], 201);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'code' => 'PED-VALIDATION-ERROR',
@@ -257,6 +256,91 @@ class PedidoController extends Controller
                 'code' => 'PED-500',
                 'status' => 'error',
                 'message' => 'Ocurrió un error inesperado al crear el pedido.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function storeCliente(Request $request)
+    {
+        try {
+            Log::info('Cuerpo del request recibido en pedidoscliente: ' . json_encode($request->all()));
+
+            $validatedData = $request->validate([
+                'sucursalId' => 'required|exists:sucursals,id',
+                'clienteId' => 'required|exists:clientes,id', // <- obligatorio aquí
+                'modalidadPedidoId' => 'required|exists:modalidades_pedido,id',
+                'items' => 'required|array|min:1',
+                'items.*.productoId' => 'required|exists:productos,id',
+                'items.*.cantidad' => 'required|integer|min:1',
+                'items.*.nota' => 'nullable|string',
+            ]);
+
+            // Estado por defecto: pendiente (o el que quieras, ej. 1)
+            $estadoPedidoId = 1;
+
+            DB::beginTransaction();
+
+            $pedido = Pedido::create([
+                'sucursal_id' => $validatedData['sucursalId'],
+                'cliente_id' => $validatedData['clienteId'],
+                'usuario_creo_id' => null, // <- siempre null aquí
+                'modalidad_pedido_id' => $validatedData['modalidadPedidoId'],
+                'estado_pedido_id' => $estadoPedidoId,
+                'mesa_id' => null,
+                'total_pedido' => 0,
+            ]);
+
+            $totalPedido = 0;
+
+            foreach ($validatedData['items'] as $item) {
+                $producto = Producto::findOrFail($item['productoId']);
+                $cantidad = $item['cantidad'];
+                $precioUnitario = $producto->precio;
+                $total = $cantidad * $precioUnitario;
+
+                $pedido->items()->create([
+                    'producto_id' => $producto->id,
+                    'cantidad' => $cantidad,
+                    'precio_unitario' => $precioUnitario,
+                    'total' => $total,
+                    'nota' => $item['nota'] ?? null,
+                ]);
+
+                $totalPedido += $total;
+            }
+
+            $pedido->total_pedido = round($totalPedido, 2);
+            $pedido->save();
+
+            DB::commit();
+
+            return response()->json([
+                'code' => 'PEDCLI-001',
+                'status' => 'success',
+                'message' => 'Pedido de cliente creado exitosamente.',
+                'data' => [
+                    'id' => $pedido->id,
+                    'estadoPedidoId' => $pedido->estado_pedido_id,
+                    'createdAt' => $pedido->created_at->toIso8601String(),
+                    'totalPedido' => round($totalPedido, 2)
+                ]
+            ], 201);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'code' => 'PEDCLI-VALIDATION-ERROR',
+                'status' => 'error',
+                'message' => 'Error de validación',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error al crear pedido cliente: ' . $e->getMessage());
+            DB::rollBack();
+
+            return response()->json([
+                'code' => 'PEDCLI-500',
+                'status' => 'error',
+                'message' => 'Ocurrió un error inesperado al crear el pedido cliente.',
                 'error' => $e->getMessage()
             ], 500);
         }
@@ -345,7 +429,6 @@ class PedidoController extends Controller
                 'status' => 'success',
                 'message' => 'Pedido actualizado correctamente.'
             ]);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'code' => 'PED-VALIDATION-ERROR',
