@@ -70,10 +70,13 @@ Route::middleware(['auth:sanctum'])->prefix('v2')->group(function () {
 
     });
 
-    Route::prefix('asistencia')->middleware('auth:sanctum')->group(function () {
-    Route::post('/', [AsistenciaController::class, 'sincronizarRegistros']);
-    });
+    Route::prefix('asistencia')->group(function () {
+    // Listar asistencias con filtros y paginación
+    Route::get('/', [AsistenciaController::class, 'index'])->middleware('permission:asistencias.view_all');
 
+    // Sincronizar asistencias (desde la app de escritorio, por ejemplo)
+    Route::post('/', [AsistenciaController::class, 'sincronizarRegistros'])->middleware('permission:asistencias.create');
+    });
 });
 // Ruta de login (sin protección)
 Route::prefix('v2')->group(function () {
