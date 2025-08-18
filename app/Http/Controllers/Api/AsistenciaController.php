@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Database\QueryException;
 use App\Models\Asistencia;
+use Illuminate\Support\Facades\Http;
 
 class AsistenciaController extends Controller
 {
