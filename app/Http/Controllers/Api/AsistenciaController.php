@@ -47,11 +47,16 @@ class AsistenciaController extends Controller
             return response()->json($asistencias, 200);
 
         } catch (\Exception $e) {
-            Log::error('Error al listar asistencias: ' . $e->getMessage());
+            Log::error('Error al listar asistencias: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+        
+            // Devuelve la excepción completa al frontend para debug
             return response()->json([
-                'code' => 'SRV-532',
+                'code' => 'DEBUG',
                 'status' => 'error',
-                'message' => 'Error al consultar las asistencias.',
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ], 500);
         }
     }
