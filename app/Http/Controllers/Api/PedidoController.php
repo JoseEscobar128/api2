@@ -346,7 +346,7 @@ class PedidoController extends Controller
         }
     }
 
-    public function storeCliente(Request $request)
+    public function showCliente(Request $request)
 {
     try {
         $usuario = $request->user(); // Usuario autenticado vía token
