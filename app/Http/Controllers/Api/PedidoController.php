@@ -346,6 +346,114 @@ class PedidoController extends Controller
         }
     }
 
+    public function storeCliente(Request $request)
+{
+    try {
+        $usuario = $request->user(); // Usuario autenticado vía token
+        if (!$usuario) {
+            return response()->json([
+                'code' => 'AUTH-401',
+                'status' => 'error',
+                'message' => 'Cliente no autenticado.'
+            ], 401);
+        }
+
+        Log::info('Cuerpo del request recibido en pedidoscliente: ' . json_encode($request->all()));
+
+        $validatedData = $request->validate([
+            'sucursalId' => 'required|exists:sucursals,id',
+            'modalidadPedidoId' => 'required|exists:modalidades_pedido,id',
+            'items' => 'required|array|min:1',
+            'items.*.productoId' => 'required|exists:productos,id',
+            'items.*.cantidad' => 'required|integer|min:1',
+            'items.*.nota' => 'nullable|string',
+        ]);
+
+        $estadoPedidoId = 1; // Pendiente por defecto
+
+        DB::beginTransaction();
+
+        $pedido = Pedido::create([
+            'sucursal_id' => $validatedData['sucursalId'],
+            'cliente_id' => $usuario->id, // asignamos el usuario autenticado
+            'usuario_creo_id' => null,
+            'modalidad_pedido_id' => $validatedData['modalidadPedidoId'],
+            'estado_pedido_id' => $estadoPedidoId,
+            'mesa_id' => null,
+            'total_pedido' => 0,
+        ]);
+
+        $totalPedido = 0;
+
+        foreach ($validatedData['items'] as $item) {
+            $producto = Producto::findOrFail($item['productoId']);
+            $cantidad = $item['cantidad'];
+            $precioUnitario = $producto->precio;
+            $total = $cantidad * $precioUnitario;
+
+            $pedido->items()->create([
+                'producto_id' => $producto->id,
+                'cantidad' => $cantidad,
+                'precio_unitario' => $precioUnitario,
+                'total' => $total,
+                'nota' => $item['nota'] ?? null,
+            ]);
+
+            $totalPedido += $total;
+        }
+
+        $pedido->total_pedido = round($totalPedido, 2);
+        $pedido->save();
+
+        DB::commit();
+
+        // Retornar detalle completo del pedido
+        $pedido->load(['items.producto', 'modalidad', 'estadoPedido']);
+
+        return response()->json([
+            'code' => 'PEDCLI-001',
+            'status' => 'success',
+            'message' => 'Pedido creado exitosamente.',
+            'data' => [
+                'id' => $pedido->id,
+                'clienteId' => $pedido->cliente_id,
+                'modalidad' => $pedido->modalidad->nombre ?? null,
+                'estadoPedido' => $pedido->estadoPedido->nombre ?? null,
+                'totalPedido' => $pedido->total_pedido,
+                'items' => $pedido->items->map(function ($item) {
+                    return [
+                        'productoId' => $item->producto_id,
+                        'nombre' => $item->producto->nombre ?? 'Producto eliminado',
+                        'cantidad' => $item->cantidad,
+                        'precioUnitario' => $item->precio_unitario,
+                        'nota' => $item->nota,
+                    ];
+                }),
+                'createdAt' => $pedido->created_at->toIso8601String(),
+            ]
+        ], 201);
+
+    } catch (ValidationException $e) {
+        return response()->json([
+            'code' => 'PEDCLI-VALIDATION-ERROR',
+            'status' => 'error',
+            'message' => 'Error de validación',
+            'errors' => $e->errors(),
+        ], 422);
+    } catch (\Exception $e) {
+        Log::error('Error al crear pedido cliente: ' . $e->getMessage());
+        DB::rollBack();
+
+        return response()->json([
+            'code' => 'PEDCLI-500',
+            'status' => 'error',
+            'message' => 'Ocurrió un error inesperado al crear el pedido cliente.',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+
 
     public function actualizarEstado(Request $request, $id)
     {
