@@ -19,47 +19,43 @@ class AsistenciaController extends Controller
      * @return \Illuminate\Http\JsonResponse
      */
     public function index(Request $request)
-    {
-        try {
-            $query = Asistencia::with('empleado')->orderBy('fecha_hora', 'desc');
+{
+    try {
+        $query = array_filter([
+            'search' => $request->search,
+            'fecha_inicio' => $request->fecha_inicio,
+            'fecha_fin' => $request->fecha_fin,
+        ]);
 
-            // Filtro por nombre de empleado
-            if ($request->filled('search')) {
-                $searchTerm = $request->search;
-                $query->whereHas('empleado', function ($q) use ($searchTerm) {
-                    $q->where('nombre', 'like', '%' . $searchTerm . '%')
-                      ->orWhere('apellido_paterno', 'like', '%' . $searchTerm . '%');
-                });
-            }
+        $response = Http::orderApi()->get('/asistencia', $query);
 
-            // Filtro por rango de fechas
-            if ($request->filled('fecha_inicio')) {
-                $query->where('fecha_hora', '>=', $request->fecha_inicio . ' 00:00:00');
-            }
-            if ($request->filled('fecha_fin')) {
-                $query->where('fecha_hora', '<=', $request->fecha_fin . ' 23:59:59');
-            }
+        if ($response->successful()) {
+            $data = $response->json();
 
-            // Paginación
-            $perPage = $request->input('per_page', 15); // 15 registros por página por defecto
-            $asistencias = $query->paginate($perPage);
+            // Convertir cadenas a UTF-8
+            $data = array_map(function($value) {
+                return is_string($value) ? mb_convert_encoding($value, 'UTF-8', 'UTF-8') : $value;
+            }, $data['data'] ?? []);
 
-            return response()->json($asistencias, 200);
-
-        } catch (\Exception $e) {
-            Log::error('Error al listar asistencias: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
-        
-            // Devuelve la excepción completa al frontend para debug
-            return response()->json([
-                'code' => 'DEBUG',
-                'status' => 'error',
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ], 500);
+            return response()->json($data, 200);
         }
+
+        return response()->json([], 200);
+
+    } catch (\Exception $e) {
+        Log::error('Error al listar asistencias: ' . $e->getMessage(), [
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        return response()->json([
+            'code' => 'DEBUG',
+            'status' => 'error',
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ], 500);
     }
+}
+
 
     /**
      * Sincroniza registros de asistencia recibidos desde la aplicación de escritorio.
