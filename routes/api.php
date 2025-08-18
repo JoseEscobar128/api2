@@ -55,7 +55,7 @@ Route::middleware(['auth:sanctum'])->prefix('v2')->group(function () {
     });
 
     Route::post('/pedidoscliente', [PedidoController::class, 'storeCliente']);
-
+    Route::get('/pedidoscliente/{id}', [PedidoController::class, 'showCliente']);
 
         // 💡 RUTAS FALTANTES: Listar estados y modalidades de pedido
     Route::prefix('estado_pedidos')->group(function () {
